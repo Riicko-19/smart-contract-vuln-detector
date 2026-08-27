@@ -7,6 +7,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from datasets import Dataset
+from sklearn.metrics import f1_score
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.class_weight import compute_class_weight
 from transformers import (
@@ -35,6 +36,20 @@ class WeightedTrainer(Trainer):
         loss_fct = nn.CrossEntropyLoss(weight=self.class_weights.to(logits.device))
         loss = loss_fct(logits, labels)
         return (loss, outputs) if return_outputs else loss
+
+
+def compute_metrics(eval_pred):
+    """Macro-F1 weights every class equally, so the minority classes count as much
+    as Timestamp Dependency (45% of the data). Selecting the best checkpoint on
+    eval_loss instead lets the model win on loss while never predicting Integer
+    Overflow at all -- macro-F1 is what we actually care about here.
+    """
+    logits, labels = eval_pred
+    preds = np.argmax(logits, axis=-1)
+    return {
+        "macro_f1": f1_score(labels, preds, average="macro"),
+        "accuracy": float((preds == labels).mean()),
+    }
 
 
 def load_split(name: str, le: LabelEncoder) -> Dataset:
@@ -72,7 +87,8 @@ def main():
         save_strategy="epoch",
         save_total_limit=1,
         load_best_model_at_end=True,
-        metric_for_best_model="eval_loss",
+        metric_for_best_model="macro_f1",
+        greater_is_better=True,
         logging_steps=10,
         report_to=[],
         fp16=torch.cuda.is_available(),
@@ -84,6 +100,7 @@ def main():
         train_dataset=train_ds,
         eval_dataset=val_ds,
         data_collator=DataCollatorWithPadding(tokenizer),
+        compute_metrics=compute_metrics,
         class_weights=class_weights,
     )
 

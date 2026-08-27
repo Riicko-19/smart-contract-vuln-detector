@@ -40,24 +40,40 @@ python src/data_prep.py
 
 - **Baseline**: TF-IDF + XGBoost / Logistic Regression
 - **Main model**: `distilbert-base-uncased` fine-tuned with a classification
-  head, class-weighted loss for imbalance (Delegatecall is 4% of the data)
+  head, class-weighted loss for imbalance (Delegatecall is 16% of the data)
+- **Checkpoint selection on macro-F1**, not `eval_loss` — see the note below
 
 ## Results
 
-Trained locally on CPU (5 epochs) as a first pass — see
-[`notebooks/colab_train.ipynb`](notebooks/colab_train.ipynb) to retrain on a
-GPU with more epochs for the final numbers.
+12 epochs, `distilbert-base-uncased`, class-weighted cross-entropy, best
+checkpoint by validation macro-F1 (epoch 6). Trained on CPU in ~7.5 minutes —
+the dataset is small enough that a GPU isn't the bottleneck. Test set is the
+held-out 59-contract split.
 
-| Model | Accuracy | Reentrancy F1 | Overflow F1 | Timestamp F1 | Delegatecall F1 |
-|---|---|---|---|---|---|
-| Baseline (TF-IDF+XGBoost) | 0.83 | 0.92 | 0.44 | 0.88 | 0.94 |
-| DistilBERT (5 epochs, CPU) | 0.80 | 0.85 | 0.00 | 0.90 | 0.90 |
-| Paper (DistilBERT, full IR-Fuzz) | ~90%+ | ~0.96 | | | |
+| Model | Accuracy | Macro F1 | Reentrancy F1 | Overflow F1 | Timestamp F1 | Delegatecall F1 |
+|---|---|---|---|---|---|---|
+| Baseline (TF-IDF+XGBoost) | 0.83 | 0.80 | 0.92 | 0.44 | 0.88 | 0.94 |
+| DistilBERT (12 epochs) | 0.83 | 0.81 | **0.96** | 0.44 | 0.85 | **1.00** |
+| Paper (DistilBERT, full IR-Fuzz) | ~90%+ | | ~0.96 | | | |
 
-DistilBERT undertrained on Integer Overflow at 5 epochs on this smaller
-dataset (56 train examples for that class) — loss was still falling each
-epoch, so a longer GPU run (see Colab notebook, 12+ epochs) is expected to
-close this gap; that's the immediate next step.
+DistilBERT matches the paper's headline Reentrancy F1 (0.96) and is perfect on
+Delegatecall, but only ties the classical baseline on overall accuracy — on
+387 contracts, TF-IDF is a genuinely strong competitor, and the honest headline
+is that DistilBERT's edge here is in *which* classes it gets right, not the
+aggregate.
+
+**Integer Overflow is the weak class (F1 0.44), and the cause is data, not
+tuning.** An earlier run scored 0.00 on it — the model never predicted the
+class at all. That turned out to be a checkpoint-selection artifact rather
+than undertraining: with `metric_for_best_model="eval_loss"`, the majority
+class dominates the loss, so the "best" checkpoint was one that had given up
+on Overflow entirely, and raising 5 → 12 epochs changed nothing because
+`load_best_model_at_end` kept reverting to it. Selecting on macro-F1 instead
+weights all four classes equally and recovers the class. What's left is a real
+ceiling: 7 of 12 Overflow contracts still leak into Timestamp Dependency (see
+[`results/confusion_matrix.png`](results/confusion_matrix.png)), and the
+baseline independently lands on the same 0.44 — unsurprising with 80 total
+examples, where arithmetic patterns co-occur with timestamp logic.
 
 ## Usage
 
@@ -73,6 +89,9 @@ python src/evaluate.py
 
 # classify a single snippet
 python src/inference.py --file path/to/Contract.sol
+
+# smoke test the trained model
+python tests/test_inference.py
 ```
 
 ## Repo layout
@@ -92,3 +111,19 @@ tests/                   # smoke tests
 ## License
 
 MIT
+
+## About this project
+
+A four-way Solidity vulnerability classifier that flags smart-contract code as
+Reentrancy, Integer Overflow, Timestamp Dependency, or Dangerous Delegatecall,
+reproducing the approach of an IEEE CCWC 2025 paper on a smaller public
+dataset. Built with PyTorch and Hugging Face Transformers, fine-tuning
+`distilbert-base-uncased` with class-weighted loss against a TF-IDF + XGBoost
+baseline in scikit-learn/XGBoost, with a CLI for single-snippet inference. The
+fine-tuned model reaches **0.96 F1 on Reentrancy** — matching the paper's
+headline number — and 1.00 on Delegatecall, at 0.83 overall accuracy on a
+387-contract set roughly a sixth the size of the paper's. The most interesting
+result was a negative one: a minority class that scored 0.00 F1 turned out to
+be a checkpoint-selection artifact, not undertraining — switching model
+selection from validation loss to macro-F1 recovered it, and the remaining
+error is a genuine data-size ceiling rather than a tuning problem.

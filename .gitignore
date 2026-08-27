@@ -1,4 +1,6 @@
 venv/
+venv-gpu/
+train_log*.txt
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
