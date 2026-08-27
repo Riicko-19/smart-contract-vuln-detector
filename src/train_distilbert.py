@@ -1,4 +1,12 @@
-"""Fine-tune distilbert-base-uncased for 4-class Solidity vulnerability classification."""
+"""Fine-tune a transformer encoder for 4-class Solidity vulnerability classification.
+
+Defaults to distilbert-base-uncased. Pass --model-name/--out-dir to train a
+different encoder for comparison, e.g. the CodeBERT ablation:
+
+    python src/train_distilbert.py --model-name microsoft/codebert-base \
+        --out-dir models/codebert-vuln
+"""
+import argparse
 import json
 from pathlib import Path
 
@@ -18,9 +26,8 @@ from transformers import (
     DataCollatorWithPadding,
 )
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "processed"
-MODEL_DIR = Path(__file__).resolve().parent.parent / "models" / "distilbert-vuln"
-MODEL_NAME = "distilbert-base-uncased"
+ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = ROOT / "data" / "processed"
 MAX_LEN = 512
 
 
@@ -59,10 +66,17 @@ def load_split(name: str, le: LabelEncoder) -> Dataset:
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model-name", default="distilbert-base-uncased")
+    parser.add_argument("--out-dir", default="models/distilbert-vuln")
+    args_cli = parser.parse_args()
+
+    model_dir = ROOT / args_cli.out_dir
+
     train_df = pd.read_csv(DATA_DIR / "train.csv")
     le = LabelEncoder().fit(train_df["label"])
 
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    tokenizer = AutoTokenizer.from_pretrained(args_cli.model_name)
 
     def tokenize(batch):
         return tokenizer(batch["code_snippet"], truncation=True, max_length=MAX_LEN)
@@ -75,10 +89,10 @@ def main():
         dtype=torch.float,
     )
 
-    model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=len(le.classes_))
+    model = AutoModelForSequenceClassification.from_pretrained(args_cli.model_name, num_labels=len(le.classes_))
 
     args = TrainingArguments(
-        output_dir=str(MODEL_DIR),
+        output_dir=str(model_dir),
         num_train_epochs=12,
         per_device_train_batch_size=8,
         per_device_eval_batch_size=8,
@@ -106,12 +120,12 @@ def main():
 
     trainer.train()
 
-    MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    trainer.save_model(str(MODEL_DIR))
-    tokenizer.save_pretrained(str(MODEL_DIR))
-    with open(MODEL_DIR / "label_classes.json", "w") as f:
+    model_dir.mkdir(parents=True, exist_ok=True)
+    trainer.save_model(str(model_dir))
+    tokenizer.save_pretrained(str(model_dir))
+    with open(model_dir / "label_classes.json", "w") as f:
         json.dump(list(le.classes_), f)
-    print("Saved model to", MODEL_DIR)
+    print("Saved model to", model_dir)
 
 
 if __name__ == "__main__":
