@@ -69,6 +69,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-name", default="distilbert-base-uncased")
     parser.add_argument("--out-dir", default="models/distilbert-vuln")
+    parser.add_argument("--seed", type=int, default=42)
     args_cli = parser.parse_args()
 
     model_dir = ROOT / args_cli.out_dir
@@ -93,6 +94,7 @@ def main():
 
     args = TrainingArguments(
         output_dir=str(model_dir),
+        seed=args_cli.seed,
         num_train_epochs=12,
         per_device_train_batch_size=8,
         per_device_eval_batch_size=8,

@@ -47,22 +47,69 @@ python src/data_prep.py
 ## Results
 
 12 epochs, class-weighted cross-entropy, best checkpoint by validation
-macro-F1. Test set is the held-out 59-contract split. Both models trained on
-CPU (DistilBERT ~7.5 min, CodeBERT ~24 min).
+macro-F1. Test set is the held-out 59-contract split.
+
+**Numbers are mean ± std over 5 seeds** (42-46), not a single run — see
+[`results/seed_study.json`](results/seed_study.json) and the note below on why
+that matters here.
 
 | Model | Accuracy | Macro F1 | Reentrancy F1 | Overflow F1 | Timestamp F1 | Delegatecall F1 |
 |---|---|---|---|---|---|---|
-| Baseline (TF-IDF+XGBoost) | 0.83 | 0.80 | 0.92 | 0.44 | 0.88 | 0.94 |
-| DistilBERT (12 epochs) | 0.83 | 0.81 | **0.96** | 0.44 | 0.85 | **1.00** |
-| CodeBERT (12 epochs) | **0.85** | **0.85** | **0.96** | **0.57** | 0.86 | **1.00** |
+| Baseline (TF-IDF+XGBoost)¹ | 0.83 | 0.80 | 0.92 | 0.44 | 0.88 | 0.94 |
+| DistilBERT | 0.834 ±0.071 | 0.826 ±0.061 | **0.949** ±0.018 | 0.508 ±0.168 | 0.848 ±0.083 | **1.000** ±0.000 |
+| CodeBERT | **0.868** ±0.037 | **0.858** ±0.054 | 0.926 ±0.048 | **0.624** ±0.170 | **0.892** ±0.023 | 0.988 ±0.026 |
 | Paper (DistilBERT, full IR-Fuzz) | ~90%+ | | ~0.96 | | | |
 
-Both fine-tuned models match the paper's headline Reentrancy F1 (0.96) and are
-perfect on Delegatecall. DistilBERT only *ties* the classical baseline on
-overall accuracy, though — on 387 contracts TF-IDF is a genuinely strong
-competitor, and DistilBERT's edge is in *which* classes it gets right rather
-than the aggregate. Swapping in CodeBERT is what actually beats the baseline
-outright, on every aggregate measure.
+¹ Baseline is deterministic, so it has no spread.
+
+DistilBERT's Reentrancy F1 of **0.949 ±0.018** is the one result that lines up
+cleanly with the paper's ~0.96 headline, and it's the most stable number in the
+table. Delegatecall is saturated at 1.000 across every seed. Both fine-tuned
+models are at best level with the classical baseline on aggregate accuracy —
+on 387 contracts, TF-IDF + XGBoost remains a genuinely strong competitor.
+
+### The honest read on CodeBERT vs DistilBERT: not proven
+
+CodeBERT has the better mean on accuracy (+0.034), macro-F1 (+0.032), Integer
+Overflow (+0.116) and Timestamp (+0.044). None of it is statistically
+significant at 5 seeds. Paired per-seed comparison:
+
+| Metric | Δ (CodeBERT − DistilBERT) | Seeds won | p (paired t) |
+|---|---|---|---|
+| Accuracy | +0.034 | 3/5 | 0.41 |
+| Macro F1 | +0.032 | 3/5 | 0.47 |
+| Integer Overflow | +0.116 | 3/5 | 0.38 |
+| Reentrancy | −0.022 | 0/2 | 0.20 |
+| Delegatecall | −0.012 | 0/1 | 0.37 |
+
+CodeBERT trends better on the aggregate and on Overflow; DistilBERT is
+*better* on the two classes it already handles well. With a 59-contract test
+set, this dataset cannot separate the two models.
+
+### Integer Overflow: one real bug, and one lesson about small test sets
+
+**The real bug — checkpoint selection.** An early run scored 0.00 F1 on Integer
+Overflow: the model never predicted the class at all. This was not
+undertraining. With `metric_for_best_model="eval_loss"`, the majority class
+dominates validation loss, so the "best" checkpoint was one that had abandoned
+Overflow entirely, and raising 5 → 12 epochs changed nothing because
+`load_best_model_at_end` kept reverting to it. Selecting on macro-F1 weights all
+four classes equally and fixed it. That result is reproducible and not noise.
+
+**The lesson — single runs on 59 samples say very little.** Integer Overflow
+swings by ±0.17 across seeds (DistilBERT: 0.26 → 0.73; CodeBERT: 0.35 → 0.78).
+Earlier iterations of this README drew confident conclusions from single runs —
+that 0.44 was a "data ceiling" because two model families agreed on it, then
+that CodeBERT's 0.57 proved the ceiling was really the encoder. Both readings
+were artifacts of run-to-run variance far larger than the effects being
+described. With 11 Reentrancy and 12 Overflow contracts in the test split, one
+flipped prediction moves a per-class F1 by ~0.09, which is why everything here
+is reported as mean ± std.
+
+Overflow remains the weakest class under any measurement, and its errors leak
+into Timestamp Dependency, where arithmetic and time-based guards co-occur (see
+[`results/confusion_matrix_codebert.png`](results/confusion_matrix_codebert.png),
+a representative single run).
 
 ### Integer Overflow: two things were wrong, and only one was a bug
 
@@ -109,12 +156,21 @@ python src/train_distilbert.py --model-name microsoft/codebert-base \
     --out-dir models/codebert-vuln
 python src/evaluate.py --model-dir models/codebert-vuln --tag codebert
 
+# multi-seed study -> results/seed_study.json (mean +/- std, both models)
+python src/seed_study.py --seeds 42 43 44 45 46
+
 # classify a single snippet
 python src/inference.py --file path/to/Contract.sol
 
 # smoke test the trained model
 python tests/test_inference.py
 ```
+
+Training runs on CPU or GPU unchanged — `fp16` switches on automatically when
+CUDA/ROCm is available. Reference timings for the full 12-epoch run: DistilBERT
+454s CPU vs 64s GPU, CodeBERT 1430s CPU vs 70s GPU (Ryzen CPU / Radeon RX 9060
+XT, ROCm 10). CPU and GPU runs do not produce bit-identical results, which is
+part of why results are reported as mean ± std over seeds.
 
 ## Repo layout
 
@@ -124,9 +180,10 @@ src/
   baseline.py         # TF-IDF + XGBoost baseline
   train_distilbert.py # fine-tune an encoder (--model-name to swap it out)
   evaluate.py         # per-class P/R/F1 + confusion matrix
+  seed_study.py       # retrain over N seeds -> mean +/- std
   inference.py        # CLI: classify a Solidity snippet
 notebooks/            # exploration
-results/              # *_metrics.json, confusion_matrix*.png
+results/              # *_metrics.json, seed_study.json, confusion_matrix*.png
 tests/                # smoke tests
 ```
 
@@ -142,13 +199,13 @@ reproducing the approach of an IEEE CCWC 2025 paper on a smaller public
 dataset. Built with PyTorch and Hugging Face Transformers, fine-tuning
 `distilbert-base-uncased` and `microsoft/codebert-base` with class-weighted
 loss against a TF-IDF + XGBoost baseline in scikit-learn/XGBoost, with a CLI
-for single-snippet inference. Both models reach **0.96 F1 on Reentrancy** —
-matching the paper's headline number — and 1.00 on Delegatecall, with CodeBERT
-at 0.85 accuracy / 0.85 macro-F1 on a 387-contract set roughly a sixth the size
-of the paper's. The most instructive part was debugging a minority class that
-scored 0.00 F1: it turned out to be a checkpoint-selection artifact rather than
+for single-snippet inference. Over 5 seeds, DistilBERT reaches **0.949 ±0.018
+F1 on Reentrancy** — in line with the paper's ~0.96 headline — and a perfect
+1.000 on Delegatecall, at 0.83 accuracy on a 387-contract set roughly a sixth
+the size of the paper's. Two findings drove most of the work: a minority class
+scoring 0.00 F1 turned out to be a checkpoint-selection artifact rather than
 undertraining (validation loss is majority-dominated, so selecting on macro-F1
-recovered the class), and the residue I had written off as a data-size ceiling
-was partly the encoder — an uncased, prose-pretrained tokenizer discards
-casing that matters in Solidity, and moving to a code-pretrained model lifted
-that class from 0.44 to 0.57.
+recovered the class), and a CodeBERT ablation that looked like a clear win on
+single runs proved statistically indistinguishable once measured across seeds —
+per-class F1 varies by ±0.17 on a 59-contract test split, wider than any effect
+being claimed. The repo reports mean ± std for that reason.

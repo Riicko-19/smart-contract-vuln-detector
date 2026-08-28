@@ -1,5 +1,6 @@
 venv/
 venv-gpu/
+*_log.txt
 train_log*.txt
 __pycache__/
 *.pyc

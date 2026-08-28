@@ -1,0 +1,136 @@
+{
+  "distilbert": {
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "runs": [
+      {
+        "accuracy": 0.847457627118644,
+        "macro_f1": 0.8362266235303399,
+        "Reentrancy": 0.9565217391304348,
+        "Integer Overflow": 0.5263157894736842,
+        "Timestamp Dependency": 0.8620689655172413,
+        "Dangerous Delegatecall": 1.0
+      },
+      {
+        "accuracy": 0.711864406779661,
+        "macro_f1": 0.7302737520128825,
+        "Reentrancy": 0.9565217391304348,
+        "Integer Overflow": 0.2608695652173913,
+        "Timestamp Dependency": 0.7037037037037037,
+        "Dangerous Delegatecall": 1.0
+      },
+      {
+        "accuracy": 0.864406779661017,
+        "macro_f1": 0.8421934865900383,
+        "Reentrancy": 0.9166666666666666,
+        "Integer Overflow": 0.5555555555555556,
+        "Timestamp Dependency": 0.896551724137931,
+        "Dangerous Delegatecall": 1.0
+      },
+      {
+        "accuracy": 0.847457627118644,
+        "macro_f1": 0.8234441602728048,
+        "Reentrancy": 0.9565217391304348,
+        "Integer Overflow": 0.47058823529411764,
+        "Timestamp Dependency": 0.8666666666666667,
+        "Dangerous Delegatecall": 1.0
+      },
+      {
+        "accuracy": 0.8983050847457628,
+        "macro_f1": 0.8982213438735178,
+        "Reentrancy": 0.9565217391304348,
+        "Integer Overflow": 0.7272727272727273,
+        "Timestamp Dependency": 0.9090909090909091,
+        "Dangerous Delegatecall": 1.0
+      }
+    ],
+    "mean": {
+      "accuracy": 0.8338983050847457,
+      "macro_f1": 0.8260718732559166,
+      "Reentrancy": 0.9485507246376811,
+      "Integer Overflow": 0.5081203745626952,
+      "Timestamp Dependency": 0.8476163938232902,
+      "Dangerous Delegatecall": 1.0
+    },
+    "std": {
+      "accuracy": 0.07130740328122927,
+      "macro_f1": 0.06073046267987676,
+      "Reentrancy": 0.017823730255433132,
+      "Integer Overflow": 0.16818928876264275,
+      "Timestamp Dependency": 0.08284991653861777,
+      "Dangerous Delegatecall": 0.0
+    }
+  },
+  "codebert": {
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "runs": [
+      {
+        "accuracy": 0.8813559322033898,
+        "macro_f1": 0.8783758786533482,
+        "Reentrancy": 0.9166666666666666,
+        "Integer Overflow": 0.75,
+        "Timestamp Dependency": 0.9056603773584906,
+        "Dangerous Delegatecall": 0.9411764705882353
+      },
+      {
+        "accuracy": 0.864406779661017,
+        "macro_f1": 0.866403162055336,
+        "Reentrancy": 0.9565217391304348,
+        "Integer Overflow": 0.6363636363636364,
+        "Timestamp Dependency": 0.8727272727272727,
+        "Dangerous Delegatecall": 1.0
+      },
+      {
+        "accuracy": 0.8135593220338984,
+        "macro_f1": 0.7690720012701437,
+        "Reentrancy": 0.8461538461538461,
+        "Integer Overflow": 0.35294117647058826,
+        "Timestamp Dependency": 0.8771929824561403,
+        "Dangerous Delegatecall": 1.0
+      },
+      {
+        "accuracy": 0.9152542372881356,
+        "macro_f1": 0.9162640901771336,
+        "Reentrancy": 0.9565217391304348,
+        "Integer Overflow": 0.782608695652174,
+        "Timestamp Dependency": 0.9259259259259259,
+        "Dangerous Delegatecall": 1.0
+      },
+      {
+        "accuracy": 0.864406779661017,
+        "macro_f1": 0.8584286803966439,
+        "Reentrancy": 0.9565217391304348,
+        "Integer Overflow": 0.6,
+        "Timestamp Dependency": 0.8771929824561403,
+        "Dangerous Delegatecall": 1.0
+      }
+    ],
+    "mean": {
+      "accuracy": 0.8677966101694917,
+      "macro_f1": 0.8577087625105211,
+      "Reentrancy": 0.9264771460423635,
+      "Integer Overflow": 0.6243827016972797,
+      "Timestamp Dependency": 0.891739908184794,
+      "Dangerous Delegatecall": 0.9882352941176471
+    },
+    "std": {
+      "accuracy": 0.03674488709945557,
+      "macro_f1": 0.05428729684787399,
+      "Reentrancy": 0.048104341623301045,
+      "Integer Overflow": 0.16973047115266268,
+      "Timestamp Dependency": 0.023168781120094312,
+      "Dangerous Delegatecall": 0.02630668208823283
+    }
+  }
+}

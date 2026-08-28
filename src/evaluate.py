@@ -18,16 +18,17 @@ DATA_DIR = ROOT / "data" / "processed"
 RESULTS_DIR = ROOT / "results"
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model-dir", default="models/distilbert-vuln")
-    parser.add_argument("--tag", default="distilbert", help="prefix for the results files")
-    args = parser.parse_args()
+def evaluate_model(model_dir: Path):
+    """Score a saved model on the held-out test split.
 
-    model_dir = ROOT / args.model_dir
+    Returns (report_dict, y_true, preds, classes). Shared with seed_study.py so
+    both paths score models identically.
+    """
     classes = json.loads((model_dir / "label_classes.json").read_text())
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
     model = AutoModelForSequenceClassification.from_pretrained(model_dir)
+    if torch.cuda.is_available():
+        model.to("cuda")
     model.eval()
 
     test_df = pd.read_csv(DATA_DIR / "test.csv")
@@ -37,10 +38,22 @@ def main():
     with torch.no_grad():
         for text in test_df["code_snippet"]:
             inputs = tokenizer(text, truncation=True, max_length=512, return_tensors="pt")
+            inputs = {k: v.to(model.device) for k, v in inputs.items()}
             logits = model(**inputs).logits
             preds.append(int(logits.argmax(dim=-1)))
 
     report = classification_report(y_true, preds, target_names=classes, output_dict=True)
+    return report, y_true, preds, classes
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model-dir", default="models/distilbert-vuln")
+    parser.add_argument("--tag", default="distilbert", help="prefix for the results files")
+    args = parser.parse_args()
+
+    model_dir = ROOT / args.model_dir
+    report, y_true, preds, classes = evaluate_model(model_dir)
     print(classification_report(y_true, preds, target_names=classes))
 
     RESULTS_DIR.mkdir(exist_ok=True)
