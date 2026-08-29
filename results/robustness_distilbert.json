@@ -1,0 +1,242 @@
+[
+  {
+    "id": "safe_checked_math",
+    "group": "SAFE",
+    "expect": null,
+    "predicted": "Integer Overflow",
+    "confidence": 0.6545222997665405,
+    "note": "Solidity 0.8 checked arithmetic, no external call, no timestamp",
+    "correct": null,
+    "dist": {
+      "Dangerous Delegatecall": 0.034346114844083786,
+      "Integer Overflow": 0.6545222997665405,
+      "Reentrancy": 0.15632417798042297,
+      "Timestamp Dependency": 0.15480735898017883
+    }
+  },
+  {
+    "id": "safe_cei_guard",
+    "group": "SAFE",
+    "expect": null,
+    "predicted": "Reentrancy",
+    "confidence": 0.7644516229629517,
+    "note": "Correct checks-effects-interactions plus a reentrancy guard",
+    "correct": null,
+    "dist": {
+      "Dangerous Delegatecall": 0.017625680193305016,
+      "Integer Overflow": 0.1905405968427658,
+      "Reentrancy": 0.7644516229629517,
+      "Timestamp Dependency": 0.027382146567106247
+    }
+  },
+  {
+    "id": "safe_pure_library",
+    "group": "SAFE",
+    "expect": null,
+    "predicted": "Integer Overflow",
+    "confidence": 0.4949686527252197,
+    "note": "Pure math library, no state, no calls",
+    "correct": null,
+    "dist": {
+      "Dangerous Delegatecall": 0.07646823674440384,
+      "Integer Overflow": 0.4949686527252197,
+      "Reentrancy": 0.06209607422351837,
+      "Timestamp Dependency": 0.36646702885627747
+    }
+  },
+  {
+    "id": "safe_storage",
+    "group": "SAFE",
+    "expect": null,
+    "predicted": "Integer Overflow",
+    "confidence": 0.45800110697746277,
+    "note": "Trivial owner-gated storage",
+    "correct": null,
+    "dist": {
+      "Dangerous Delegatecall": 0.08418919146060944,
+      "Integer Overflow": 0.45800110697746277,
+      "Reentrancy": 0.12149975448846817,
+      "Timestamp Dependency": 0.3363099694252014
+    }
+  },
+  {
+    "id": "modern_reentrancy",
+    "group": "MODERN",
+    "expect": "Reentrancy",
+    "predicted": "Reentrancy",
+    "confidence": 0.8367404937744141,
+    "note": "Genuine reentrancy using .call{value:} -- the corpus only ever saw .call.value()",
+    "correct": true,
+    "dist": {
+      "Dangerous Delegatecall": 0.012051096186041832,
+      "Integer Overflow": 0.1345963031053543,
+      "Reentrancy": 0.8367404937744141,
+      "Timestamp Dependency": 0.016612118110060692
+    }
+  },
+  {
+    "id": "modern_delegatecall",
+    "group": "MODERN",
+    "expect": "Dangerous Delegatecall",
+    "predicted": "Dangerous Delegatecall",
+    "confidence": 0.9725052714347839,
+    "note": "Attacker-controlled delegatecall target, modern syntax",
+    "correct": true,
+    "dist": {
+      "Dangerous Delegatecall": 0.9725052714347839,
+      "Integer Overflow": 0.010709373280405998,
+      "Reentrancy": 0.007961930707097054,
+      "Timestamp Dependency": 0.008823301643133163
+    }
+  },
+  {
+    "id": "modern_overflow_unchecked",
+    "group": "MODERN",
+    "expect": "Integer Overflow",
+    "predicted": "Integer Overflow",
+    "confidence": 0.6247735023498535,
+    "note": "Overflow deliberately re-enabled with an unchecked block",
+    "correct": true,
+    "dist": {
+      "Dangerous Delegatecall": 0.02905206009745598,
+      "Integer Overflow": 0.6247735023498535,
+      "Reentrancy": 0.2211458534002304,
+      "Timestamp Dependency": 0.1250285506248474
+    }
+  },
+  {
+    "id": "ablate_reentrancy_transfer",
+    "group": "ABLATE",
+    "expect": "Reentrancy",
+    "predicted": "Reentrancy",
+    "confidence": 0.6476919054985046,
+    "note": "Reentrancy through an external contract callback -- no .call.value anywhere",
+    "correct": true,
+    "dist": {
+      "Dangerous Delegatecall": 0.016928333789110184,
+      "Integer Overflow": 0.2829272449016571,
+      "Reentrancy": 0.6476919054985046,
+      "Timestamp Dependency": 0.052452538162469864
+    }
+  },
+  {
+    "id": "ablate_timestamp_blocknumber",
+    "group": "ABLATE",
+    "expect": "Timestamp Dependency",
+    "predicted": "Integer Overflow",
+    "confidence": 0.4608336389064789,
+    "note": "Time-based randomness via block.number/blockhash instead of block.timestamp",
+    "correct": false,
+    "dist": {
+      "Dangerous Delegatecall": 0.17295898497104645,
+      "Integer Overflow": 0.4608336389064789,
+      "Reentrancy": 0.07414551824331284,
+      "Timestamp Dependency": 0.29206186532974243
+    }
+  },
+  {
+    "id": "inject_timestamp_into_safe",
+    "group": "INJECT",
+    "expect": null,
+    "predicted": "Timestamp Dependency",
+    "confidence": 0.8208013772964478,
+    "note": "safe_checked_math plus a timestamp used only in an event -- nothing depends on it",
+    "correct": null,
+    "dist": {
+      "Dangerous Delegatecall": 0.01906517520546913,
+      "Integer Overflow": 0.13479171693325043,
+      "Reentrancy": 0.025341730564832687,
+      "Timestamp Dependency": 0.8208013772964478
+    }
+  },
+  {
+    "id": "inject_delegatecall_comment",
+    "group": "INJECT",
+    "expect": null,
+    "predicted": "Dangerous Delegatecall",
+    "confidence": 0.8999133706092834,
+    "note": "Safe storage contract with the word delegatecall only in a comment",
+    "correct": null,
+    "dist": {
+      "Dangerous Delegatecall": 0.8999133706092834,
+      "Integer Overflow": 0.04584550857543945,
+      "Reentrancy": 0.02995443157851696,
+      "Timestamp Dependency": 0.024286746978759766
+    }
+  },
+  {
+    "id": "inject_callvalue_string",
+    "group": "INJECT",
+    "expect": null,
+    "predicted": "Integer Overflow",
+    "confidence": 0.5724127888679504,
+    "note": "Safe contract where '.call.value(' appears only inside a revert string",
+    "correct": null,
+    "dist": {
+      "Dangerous Delegatecall": 0.061139460653066635,
+      "Integer Overflow": 0.5724127888679504,
+      "Reentrancy": 0.30918124318122864,
+      "Timestamp Dependency": 0.05726653337478638
+    }
+  },
+  {
+    "id": "perturb_baseline",
+    "group": "PERTURB",
+    "expect": "Reentrancy",
+    "predicted": "Reentrancy",
+    "confidence": 0.8633795976638794,
+    "note": "Classic vulnerable withdraw, original naming",
+    "correct": true,
+    "dist": {
+      "Dangerous Delegatecall": 0.012075772508978844,
+      "Integer Overflow": 0.11160735785961151,
+      "Reentrancy": 0.8633795976638794,
+      "Timestamp Dependency": 0.012937281280755997
+    }
+  },
+  {
+    "id": "perturb_renamed",
+    "group": "PERTURB",
+    "expect": "Reentrancy",
+    "predicted": "Reentrancy",
+    "confidence": 0.8469899296760559,
+    "note": "Identical bug, identifiers renamed and comments added",
+    "correct": true,
+    "dist": {
+      "Dangerous Delegatecall": 0.012929354794323444,
+      "Integer Overflow": 0.1254444271326065,
+      "Reentrancy": 0.8469899296760559,
+      "Timestamp Dependency": 0.014636306092143059
+    }
+  },
+  {
+    "id": "junk_python",
+    "group": "JUNK",
+    "expect": null,
+    "predicted": "Integer Overflow",
+    "confidence": 0.4500364363193512,
+    "note": "Python, not Solidity",
+    "correct": null,
+    "dist": {
+      "Dangerous Delegatecall": 0.03856373578310013,
+      "Integer Overflow": 0.4500364363193512,
+      "Reentrancy": 0.40817442536354065,
+      "Timestamp Dependency": 0.10322544723749161
+    }
+  },
+  {
+    "id": "junk_prose",
+    "group": "JUNK",
+    "expect": null,
+    "predicted": "Timestamp Dependency",
+    "confidence": 0.3396754264831543,
+    "note": "Plain English, no code",
+    "correct": null,
+    "dist": {
+      "Dangerous Delegatecall": 0.15597185492515564,
+      "Integer Overflow": 0.33329328894615173,
+      "Reentrancy": 0.17105944454669952,
+      "Timestamp Dependency": 0.3396754264831543
+    }
+  }
+]

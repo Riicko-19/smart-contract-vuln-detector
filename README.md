@@ -204,6 +204,9 @@ python src/evaluate.py --model-dir models/codebert-vuln --tag codebert
 # multi-seed study -> results/seed_study.json (mean +/- std, both models)
 python src/seed_study.py --seeds 42 43 44 45 46
 
+# adversarial / OOD probe -> results/robustness_*.json
+python src/robustness.py --model-dir models/codebert-vuln --tag codebert
+
 # classify a single snippet
 python src/inference.py --file path/to/Contract.sol
 
@@ -219,6 +222,71 @@ CUDA/ROCm is available. Reference timings for the full 12-epoch run: DistilBERT
 454s CPU vs 64s GPU, CodeBERT 1430s CPU vs 70s GPU (Ryzen CPU / Radeon RX 9060
 XT, ROCm 10). CPU and GPU runs do not produce bit-identical results, which is
 part of why results are reported as mean ± std over seeds.
+
+## Adversarial / out-of-distribution probe
+
+The 0.87 figure above comes from a split of the *same* corpus the model trained
+on, which says little about unfamiliar code. [`src/robustness.py`](src/robustness.py)
+runs 16 hand-written probes designed to break it
+([`results/robustness_codebert.json`](results/robustness_codebert.json)):
+
+```bash
+python src/robustness.py --model-dir models/codebert-vuln --tag codebert
+```
+
+### It generalises better than the marker analysis suggested
+
+Given that 100% of Reentrancy contracts contain `.call.value(`, the obvious
+worry was that the model is a keyword detector. It isn't. CodeBERT scored
+**7/7** on the gradeable probes, including cases where the trained keyword is
+absent entirely:
+
+| Probe | What it tests | Result |
+|---|---|---|
+| `.call{value: x}("")` reentrancy | post-0.8 syntax the corpus never contained | Reentrancy 99.3% ✓ |
+| reentrancy via a callback interface | genuine bug, **no `.call.value` anywhere** | Reentrancy 97.9% ✓ |
+| randomness from `blockhash`/`block.number` | timestamp bug, **no `block.timestamp`** | Timestamp 98.6% ✓ |
+| `unchecked { }` overflow | modern re-enabled overflow | Overflow 98.8% ✓ |
+| renamed identifiers + comments | cosmetic invariance | stable, 99.5% → 99.4% ✓ |
+
+DistilBERT managed 6/7 on the same probes, missing the `blockhash` case.
+
+### The real failure: there is no "safe" class
+
+Every benign contract is necessarily misclassified, and the model is *confident*
+about it:
+
+| Benign input | Predicted | Confidence |
+|---|---|---|
+| Pure math library (no state, no calls, no time) | Timestamp Dependency | **99.1%** |
+| Solidity 0.8 checked arithmetic | Integer Overflow | 95.5% |
+| Owner-gated storage | Timestamp Dependency | 95.0% |
+| Correct checks-effects-interactions + guard | Reentrancy | 60.2% |
+| **Python source code** | Integer Overflow | **93.7%** |
+| English prose | Dangerous Delegatecall | 40.4% |
+
+And confidence cannot be used to screen these out, because the ranges overlap:
+
+```
+benign / junk : 40.4% .. 99.1%
+real vulns    : 97.9% .. 99.7%
+```
+
+A pure math library (99.1%) outscores a genuine reentrancy bug (97.9%). **No
+threshold separates them**, so confidence is not a usable safety signal.
+
+Two smaller weaknesses: the model has no notion of "this isn't Solidity"
+(Python scores 93.7%), and non-executable text moves predictions — a contract
+whose only mention of `delegatecall` is inside a *comment* flips to Dangerous
+Delegatecall (DistilBERT 90.0%, CodeBERT 55.8%).
+
+### What that means in practice
+
+The classifier answers *"which of these four does this most resemble?"* — never
+*"is this safe?"*. It is only meaningful on code already believed to be
+vulnerable. Making it a real detector needs a negative class of benign
+contracts, which this dataset does not contain; that plus the multi-label
+reframing above are the two changes that would matter most.
 
 ## Explaining a prediction
 
@@ -258,9 +326,10 @@ src/
   evaluate.py         # per-class P/R/F1 + confusion matrix
   seed_study.py       # retrain over N seeds -> mean +/- std
   explain.py          # class descriptions, marker scan, occlusion attribution
+  robustness.py       # adversarial / out-of-distribution probe suite
   inference.py        # CLI: classify a snippet (--explain for detail)
 notebooks/            # exploration
-results/              # *_metrics.json, seed_study.json, confusion_matrix*.png
+results/              # *_metrics.json, seed_study.json, robustness_*.json, confusion_matrix*.png
 tests/                # smoke tests
 ```
 
