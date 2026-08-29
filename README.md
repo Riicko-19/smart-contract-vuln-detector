@@ -8,8 +8,13 @@ Reproduces the approach from Hossain, Altarawneh & Roberts, ["Leveraging
 LLMs and ML for Smart Contract Vulnerability Detection"](https://arxiv.org/abs/2501.02229),
 IEEE CCWC 2025.
 
-**Trained model on the Hub:**
-[`AbijithwearsHUGGIES/codebert-smart-contract-vuln`](https://huggingface.co/AbijithwearsHUGGIES/codebert-smart-contract-vuln)
+**[▶ Live demo](https://huggingface.co/spaces/AbijithwearsHUGGIES/smart-contract-vuln-detector)**
+— runs in your browser, no upload · **[Model on the Hub](https://huggingface.co/AbijithwearsHUGGIES/codebert-smart-contract-vuln)**
+
+The demo is a *static* Space: the int8-quantized model (125 MB) is fetched once
+and run client-side via transformers.js + ONNX Runtime WASM, so pasted contracts
+never leave the browser. Quantization costs a little accuracy — 0.864 vs 0.881 —
+so use the PyTorch weights below for exact numbers.
 
 ```python
 from transformers import pipeline
