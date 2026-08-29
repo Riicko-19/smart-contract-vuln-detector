@@ -4,6 +4,7 @@ Defaults to the DistilBERT run; point --model-dir/--tag at another run to score
 an ablation, e.g. --model-dir models/codebert-vuln --tag codebert
 """
 import argparse
+import inspect
 import json
 from pathlib import Path
 
@@ -34,11 +35,15 @@ def evaluate_model(model_dir: Path):
     test_df = pd.read_csv(DATA_DIR / "test.csv")
     y_true = [classes.index(l) for l in test_df["label"]]
 
+    # DistilBERT's tokenizer emits token_type_ids that its model does not accept,
+    # so keep only the keys this model's forward() actually takes.
+    accepted = set(inspect.signature(model.forward).parameters)
+
     preds = []
     with torch.no_grad():
         for text in test_df["code_snippet"]:
             inputs = tokenizer(text, truncation=True, max_length=512, return_tensors="pt")
-            inputs = {k: v.to(model.device) for k, v in inputs.items()}
+            inputs = {k: v.to(model.device) for k, v in inputs.items() if k in accepted}
             logits = model(**inputs).logits
             preds.append(int(logits.argmax(dim=-1)))
 

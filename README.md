@@ -207,6 +207,9 @@ python src/seed_study.py --seeds 42 43 44 45 46
 # classify a single snippet
 python src/inference.py --file path/to/Contract.sol
 
+# ...with explanation: markers, per-line attribution, remediation
+python src/inference.py --file path/to/Contract.sol --explain
+
 # smoke test the trained model
 python tests/test_inference.py
 ```
@@ -217,6 +220,34 @@ CUDA/ROCm is available. Reference timings for the full 12-epoch run: DistilBERT
 XT, ROCm 10). CPU and GPU runs do not produce bit-identical results, which is
 part of why results are reported as mean ± std over seeds.
 
+## Explaining a prediction
+
+Both the CLI (`--explain`) and the [live demo](https://huggingface.co/spaces/AbijithwearsHUGGIES/smart-contract-vuln-detector)
+show three things beyond the label, sharing the logic in [`src/explain.py`](src/explain.py):
+
+1. **What the class means** — the mechanism, why it matters, and the standard fix.
+2. **Which syntactic markers fired** — the validated signatures (`.call.value(`,
+   `block.timestamp`/`now`, `.delegatecall(`) with line numbers. When markers for
+   *more than one* class appear, it says so: those contracts are genuinely
+   ambiguous, and forcing a single label onto them is the main source of error.
+3. **Which lines the model leaned on** — line-level occlusion. Each non-empty line
+   is deleted, the contract re-scored, and the drop in the predicted class's
+   probability is that line's importance. One forward pass per line, so it's cheap
+   enough to run in a browser.
+
+On a reentrancy contract, attribution isolates exactly the checks-effects-interactions
+violation:
+
+```
+--- Lines the model leaned on ---
+  +0.992  line   7  if(msg.sender.call.value(_am)()){
+  +0.992  line   6  if(_am <= balances[msg.sender]) {
+  +0.985  line   8  balances[msg.sender] -= _am;
+  +0.003  line   3  mapping (address => uint) public balances;
+```
+
+The external call on line 7 precedes the state update on line 8 — which is the bug.
+
 ## Repo layout
 
 ```
@@ -226,7 +257,8 @@ src/
   train_distilbert.py # fine-tune an encoder (--model-name to swap it out)
   evaluate.py         # per-class P/R/F1 + confusion matrix
   seed_study.py       # retrain over N seeds -> mean +/- std
-  inference.py        # CLI: classify a Solidity snippet
+  explain.py          # class descriptions, marker scan, occlusion attribution
+  inference.py        # CLI: classify a snippet (--explain for detail)
 notebooks/            # exploration
 results/              # *_metrics.json, seed_study.json, confusion_matrix*.png
 tests/                # smoke tests
