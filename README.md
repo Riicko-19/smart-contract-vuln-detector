@@ -1,12 +1,21 @@
 # smart-contract-vuln-detector
 
-Fine-tuned DistilBERT (+ classical baseline) that classifies Solidity code
-snippets into one of four vulnerability types: **Reentrancy**, **Integer
-Overflow**, **Timestamp Dependency**, **Dangerous Delegatecall**.
+Fine-tuned DistilBERT and CodeBERT (+ a classical baseline) that classify
+Solidity contracts into one of four vulnerability types: **Reentrancy**,
+**Integer Overflow**, **Timestamp Dependency**, **Dangerous Delegatecall**.
 
 Reproduces the approach from Hossain, Altarawneh & Roberts, ["Leveraging
 LLMs and ML for Smart Contract Vulnerability Detection"](https://arxiv.org/abs/2501.02229),
 IEEE CCWC 2025.
+
+**Trained model on the Hub:**
+[`AbijithwearsHUGGIES/codebert-smart-contract-vuln`](https://huggingface.co/AbijithwearsHUGGIES/codebert-smart-contract-vuln)
+
+```python
+from transformers import pipeline
+clf = pipeline("text-classification", model="AbijithwearsHUGGIES/codebert-smart-contract-vuln")
+clf(open("Contract.sol").read())
+```
 
 ## Dataset
 
@@ -106,8 +115,39 @@ described. With 11 Reentrancy and 12 Overflow contracts in the test split, one
 flipped prediction moves a per-class F1 by ~0.09, which is why everything here
 is reported as mean ± std.
 
-Overflow remains the weakest class under any measurement, and its errors leak
-into Timestamp Dependency, where arithmetic and time-based guards co-occur (see
+### Why Integer Overflow is actually hard: the label is contaminated
+
+Neither model nor tuning is the real constraint — the class itself is not
+cleanly separable in this dataset. Counting simple syntactic markers across all
+387 contracts:
+
+| True label | contains `.call.value(` | contains `block.timestamp`/`now` | contains `.delegatecall(` |
+|---|---|---|---|
+| Reentrancy | **1.00** | 0.01 | 0.00 |
+| Timestamp Dependency | 0.01 | **1.00** | 0.00 |
+| Dangerous Delegatecall | 0.00 | 0.00 | **0.89** |
+| Integer Overflow | 0.39 | 0.55 | 0.00 |
+
+Three classes have a near-perfect syntactic signature. Integer Overflow has
+**none of its own**, and instead carries the other classes' markers: 31 of its
+80 contracts contain the reentrancy pattern, and 55% contain timestamp calls.
+
+The cause is structural. The source dataset ships four *independent binary*
+labelled sets, and a contract can exhibit several vulnerabilities at once.
+Merging them into one multi-class problem forces a single label onto contracts
+that legitimately carry more than one, and Integer Overflow — which has no
+distinctive syntax, unlike a `delegatecall` or a `block.timestamp` — absorbs the
+ambiguity. Two contracts in the splits are near-identical `CashOut` functions
+using `msg.sender.call.value(_am)()`, one labelled Reentrancy and the other
+Integer Overflow.
+
+So the ~0.5-0.6 F1 with ±0.17 spread is close to the ceiling this label
+definition allows. Treating the task as **multi-label** rather than
+single-label would be the principled fix, and is the most promising direction
+for future work here — more than any change of encoder.
+
+Overflow's residual errors leak into Timestamp Dependency, exactly as the marker
+overlap predicts (see
 [`results/confusion_matrix_codebert.png`](results/confusion_matrix_codebert.png),
 a representative single run).
 
